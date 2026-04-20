@@ -17,6 +17,10 @@ import javax.swing.JSlider;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import static mini.projet_dac.carrefourManager.*; 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class MiniProjet_DAC extends JFrame {
     
@@ -272,7 +276,21 @@ public class MiniProjet_DAC extends JFrame {
             public void actionPerformed(ActionEvent arg0) {
                 startButton.setEnabled(true);
                 stopButton.setEnabled(false);
-                stopButtonIsActive.set(true); //resseting the boolean that indicate the stop of the cars
+                // -------------------------------------------------------------------------
+                // [CONCURRENCY FIX: Semaphore drainPermits()]
+                // drainPermits() resets permit count to 0 before each STOP,
+                // preventing surplus permits from accumulating across cycles.      
+                // -------------------------------------------------------------------------
+                restart.drainPermits(); 
+                // emaphore is a number:
+                // javaSemaphore restart = new Semaphore(0)
+                // This number starts at 0.
+                // Only two operations:
+                // acquire() → number -1, if the number is already 0, block and wait here
+                // release() → number +1
+                // when release emaphore add (number of car +  2)
+
+                stopButtonIsActive.set(true);
             }
         });
         stopButton.setBounds(210, 740, 130, 50);
@@ -368,9 +386,17 @@ public class MiniProjet_DAC extends JFrame {
                             Logger.getLogger(carrefourManager.class.getName()).log(Level.SEVERE, null, ex);
                         }
 
+                        // [FIX] Use a shuffled list of sub-lane positions (1..4) instead of
+                        // random picks, so no two cars in the same wave share the same sub-lane
+                        // (p value) and start at the exact same coordinates.
+                        List<Integer> voie1Positions = new ArrayList<>(Arrays.asList(1, 2, 3, 4));
+                        List<Integer> voie2Positions = new ArrayList<>(Arrays.asList(1, 2, 3, 4));
+                        Collections.shuffle(voie1Positions);
+                        Collections.shuffle(voie2Positions);
+
                         for (int i = 0; i < carsPerWave; i++) {
-                            voie1Position = (new Random().nextInt(4)) + 1;//taking random position for the car in voie1
-                            voie2Position = (new Random().nextInt(4)) + 1;//taking random position for the car in voie2
+                            voie1Position = voie1Positions.get(i); // unique sub-lane per car in this wave
+                            voie2Position = voie2Positions.get(i); // unique sub-lane per car in this wave
 
                             voitureV1_V2 voitureVoie1;
                             voitureV2_V1 voitureVoie2;
